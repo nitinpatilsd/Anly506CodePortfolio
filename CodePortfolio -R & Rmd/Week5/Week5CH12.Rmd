@@ -1,0 +1,264 @@
+---
+title: "Week5CH12"
+author: "Nitin"
+date: "June 8, 2019"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, include=FALSE}
+#options(tinytex.verbose = TRUE)
+```
+#Tidy data
+Required package
+```{r}
+library(tidyverse)
+library(tinytex)
+```
+
+See table
+```{r}
+table1
+```
+
+See table2
+```{r}
+table2
+```
+
+See table3
+```{r}
+table3
+```
+
+See table4a
+```{r}
+table4a
+```
+
+See table4b
+```{r}
+table4b
+```
+
+Diffrent ways to work with table 1.
+Compute rate per 10,000
+```{r}
+table1 %>% 
+  mutate(rate = cases / population * 10000)
+```
+
+Compute cases per year
+```{r}
+table1 %>% 
+  count(year, wt = cases)
+```
+
+Visualise changes over time
+```{r}
+library(ggplot2)
+ggplot(table1, aes(year, cases)) + 
+  geom_line(aes(group = country), colour = "grey50") + 
+  geom_point(aes(colour = country))
+```
+
+## Spreading and gathering
+### Gathering
+some times in data the column names are not names of variables, but values of a variable. 
+See table4
+```{r}
+table4a
+```
+
+
+Generate the call to gather()
+To tidy a dataset like this, we need to gather those columns into a new pair of variables.
+```{r}
+table4a %>% 
+  gather(`1999`, `2000`, key = "year", value = "cases")
+```
+
+Generate the call to gather()
+```{r}
+table4b %>% 
+  gather(`1999`, `2000`, key = "year", value = "population")
+```
+
+Combine the tidied versions of table4a and table4b into a single tibble,
+```{r}
+tidy4a <- table4a %>% 
+  gather(`1999`, `2000`, key = "year", value = "cases")
+tidy4b <- table4b %>% 
+  gather(`1999`, `2000`, key = "year", value = "population")
+left_join(tidy4a, tidy4b)
+
+```
+
+### Separate
+In spreading opposite to what is done gathering.
+```{r}
+table2
+```
+
+```{r}
+table2 %>%
+    spread(key = type, value = count)
+```
+
+
+
+## Separating and uniting
+Separate
+
+```{r}
+table3
+```
+
+Function separate() pulls apart one column into multiple columns, by splitting wherever a separator character appears
+```{r}
+table3 %>% 
+  separate(rate, into = c("cases", "population"))
+```
+
+rate column contains both cases and population variables which need to be split it into two variables. 
+```{r}
+table3 %>% 
+  separate(rate, into = c("cases", "population"), sep = "/")
+```
+
+separate() split the values of rate at the forward slash characters
+```{r}
+table3 %>% 
+  separate(rate, into = c("cases", "population"), convert = TRUE)
+```
+
+```{r}
+table3 %>% 
+  separate(year, into = c("century", "year"), sep = 2)
+```
+
+# Unite
+```{r}
+table5 %>% 
+  unite(new, century, year)
+```
+
+```{r}
+table5 %>% 
+  unite(new, century, year, sep = "")
+```
+
+## Missing values
+A value can be missing in one of two possible ways.
+1. Explicitly
+2. Implicitly
+```{r}
+stocks <- tibble(
+  year   = c(2015, 2015, 2015, 2015, 2016, 2016, 2016),
+  qtr    = c(   1,    2,    3,    4,    2,    3,    4),
+  return = c(1.88, 0.59, 0.35,   NA, 0.92, 0.17, 2.66)
+)
+```
+
+Make the implicit missing value explicit by putting years in the columns
+```{r}
+stocks %>% 
+  spread(year, return)
+```
+
+Turn explicit missing values implicit by seting na.rm = TRUE
+```{r}
+stocks %>% 
+  spread(year, return) %>% 
+  gather(year, return, `2015`:`2016`, na.rm = TRUE)
+```
+
+Make missing values explicit in tidy data by using function complete
+```{r}
+stocks %>% 
+  complete(year, qtr)
+```
+
+```{r}
+treatment <- tribble(
+  ~ person,           ~ treatment, ~response,
+  "Derrick Whitmore", 1,           7,
+  NA,                 2,           10,
+  NA,                 3,           9,
+  "Katherine Burke",  1,           4
+)
+```
+
+```{r}
+treatment %>% 
+  fill(person)
+```
+
+## Case Study
+```{r}
+who
+```
+
+Focus on the values that are present.
+```{r}
+who1 <- who %>% 
+  gather(new_sp_m014:newrel_f65, key = "key", value = "cases", na.rm = TRUE)
+who1
+```
+
+Count using key.
+```{r}
+who1 %>% 
+  count(key)
+```
+
+Makes all variable names consistent.
+```{r}
+who2 <- who1 %>% 
+  mutate(key = stringr::str_replace(key, "newrel", "new_rel"))
+who2
+```
+
+Separate the values in each code with two passes usinf function separate()
+```{r}
+who3 <- who2 %>% 
+  separate(key, c("new", "type", "sexage"), sep = "_")
+who3
+```
+
+```{r}
+who3 %>% 
+  count(new)
+```
+
+```{r}
+who4 <- who3 %>% 
+  select(-new, -iso2, -iso3)
+```
+
+Separate sexage into sex and age by splitting after the first character.
+```{r}
+who5 <- who4 %>% 
+  separate(sexage, c("sex", "age"), sep = 1)
+who5
+```
+
+who dataset is now tidy!
+```{r}
+who %>%
+  gather(key, value, new_sp_m014:newrel_f65, na.rm = TRUE) %>% 
+  mutate(key = stringr::str_replace(key, "newrel", "new_rel")) %>%
+  separate(key, c("new", "var", "sexage")) %>% 
+  select(-new, -iso2, -iso3) %>% 
+  separate(sexage, c("sex", "age"), sep = 1)
+```
+
+
+
